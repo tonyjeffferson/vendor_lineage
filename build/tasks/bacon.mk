@@ -17,13 +17,18 @@
 # Lineage OTA update package
 
 LINEAGE_TARGET_PACKAGE := $(PRODUCT_OUT)/$(LINEAGE_VERSION).zip
+OTA_TARGET_FILES_DIR := $(PRODUCT_OUT)/.ota_target_files
+OTA_TARGET_FILES_BASE := $(OTA_TARGET_FILES_DIR)/base-target_files.zip
+OTA_TARGET_FILES_TARGET := $(OTA_TARGET_FILES_DIR)/target-target_files.zip
 
 SHA256 := prebuilts/build-tools/path/$(HOST_PREBUILT_TAG)/sha256sum
 
-$(LINEAGE_TARGET_PACKAGE): $(INTERNAL_OTA_PACKAGE_TARGET)
+$(LINEAGE_TARGET_PACKAGE): $(INTERNAL_OTA_PACKAGE_TARGET) $(BUILT_TARGET_FILES_PACKAGE)
 	$(hide) mv -f $(INTERNAL_OTA_PACKAGE_TARGET) $(LINEAGE_TARGET_PACKAGE)
 	$(hide) $(SHA256) $(LINEAGE_TARGET_PACKAGE) | sed "s|$(PRODUCT_OUT)/||" > $(LINEAGE_TARGET_PACKAGE).sha256sum
 	$(hide) ./vendor/lineage/build/tools/createjson.sh $(TARGET_DEVICE) $(PRODUCT_OUT) $(LINEAGE_VERSION).zip
+	$(hide) mkdir -p $(OTA_TARGET_FILES_DIR)
+	$(hide) cp -f $(BUILT_TARGET_FILES_PACKAGE) $(OTA_TARGET_FILES_BASE).tmp && mv -f $(OTA_TARGET_FILES_BASE).tmp $(OTA_TARGET_FILES_BASE)
 	$(hide) rm -rf $(call intermediates-dir-for,PACKAGING,target_files)
 	$(hide) ./vendor/lineage/build/tasks/ascii_output.sh
 	echo -e "\n${CL_BLD}${CL_GRN}================================================================================${CL_RST}" >&2
@@ -45,3 +50,26 @@ $(LINEAGE_TARGET_PACKAGE): $(INTERNAL_OTA_PACKAGE_TARGET)
 
 .PHONY: bacon
 bacon: $(LINEAGE_TARGET_PACKAGE) $(DEFAULT_GOAL)
+
+.PHONY: lunaris
+lunaris: bacon
+
+ifneq ($(filter ota,$(MAKECMDGOALS)),)
+ifeq ($(wildcard $(OTA_TARGET_FILES_BASE)),)
+$(error No base target_files archive found at $(OTA_TARGET_FILES_BASE). Run 'm bacon' or 'm lunaris' first)
+endif
+endif
+
+.PHONY: ota
+ota: $(OTA_FROM_TARGET_FILES) $(BUILT_TARGET_FILES_PACKAGE)
+	$(hide) mkdir -p $(OTA_TARGET_FILES_DIR)
+	$(hide) cp -f $(BUILT_TARGET_FILES_PACKAGE) $(OTA_TARGET_FILES_TARGET).tmp && mv -f $(OTA_TARGET_FILES_TARGET).tmp $(OTA_TARGET_FILES_TARGET)
+	$(hide) trap 'rm -f $(OTA_TARGET_FILES_TARGET) $(OTA_TARGET_FILES_TARGET).tmp; rm -rf $(call intermediates-dir-for,PACKAGING,target_files)' EXIT; python3 vendor/lineage/build/tools/createincrementalota.py \
+		--build-top $(abspath .) \
+		--product-out $(PRODUCT_OUT) \
+		--device $(TARGET_DEVICE) \
+		--version $(LINEAGE_VERSION) \
+		--ota-tool $(OTA_FROM_TARGET_FILES) \
+		--source-target-files $(OTA_TARGET_FILES_BASE) \
+		--target-target-files $(OTA_TARGET_FILES_TARGET) && \
+		mv -f $(OTA_TARGET_FILES_TARGET) $(OTA_TARGET_FILES_BASE)
