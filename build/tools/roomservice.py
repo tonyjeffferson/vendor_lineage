@@ -120,6 +120,17 @@ def get_from_manifest(devicename):
 
     return None
 
+def get_local_product_tree(product_name):
+    """Find an already-synced device tree for a locally declared product."""
+    for products_file in glob.glob("device/*/*/AndroidProducts.mk"):
+        try:
+            with open(products_file, "r") as f:
+                if product_name in f.read():
+                    return os.path.dirname(products_file)
+        except OSError:
+            continue
+    return None
+
 def is_in_manifest(projectpath):
     for path in glob.glob(".repo/local_manifests/*.xml"):
         try:
@@ -277,7 +288,7 @@ def get_default_or_fallback_revision(repo_name):
     return ""
 
 if depsonly:
-    repo_path = get_from_manifest(device)
+    repo_path = get_from_manifest(device) or get_local_product_tree(product)
     if repo_path:
         fetch_dependencies(repo_path)
     else:
