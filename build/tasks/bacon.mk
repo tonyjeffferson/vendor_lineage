@@ -21,11 +21,8 @@ OTA_TARGET_FILES_DIR := $(PRODUCT_OUT)/.ota_target_files
 OTA_TARGET_FILES_BASE := $(OTA_TARGET_FILES_DIR)/base-target_files.zip
 OTA_TARGET_FILES_TARGET := $(OTA_TARGET_FILES_DIR)/target-target_files.zip
 
-SHA256 := prebuilts/build-tools/path/$(HOST_PREBUILT_TAG)/sha256sum
-
 $(LINEAGE_TARGET_PACKAGE): $(INTERNAL_OTA_PACKAGE_TARGET) $(BUILT_TARGET_FILES_PACKAGE)
 	$(hide) mv -f $(INTERNAL_OTA_PACKAGE_TARGET) $(LINEAGE_TARGET_PACKAGE)
-	$(hide) $(SHA256) $(LINEAGE_TARGET_PACKAGE) | sed "s|$(PRODUCT_OUT)/||" > $(LINEAGE_TARGET_PACKAGE).sha256sum
 	$(hide) ./vendor/lineage/build/tools/createjson.sh $(TARGET_DEVICE) $(PRODUCT_OUT) $(LINEAGE_VERSION).zip
 	$(hide) mkdir -p $(OTA_TARGET_FILES_DIR)
 	$(hide) cp -f $(BUILT_TARGET_FILES_PACKAGE) $(OTA_TARGET_FILES_BASE).tmp && mv -f $(OTA_TARGET_FILES_BASE).tmp $(OTA_TARGET_FILES_BASE)
